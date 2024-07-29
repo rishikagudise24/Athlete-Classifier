@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>International Athlete Classifier</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bulma@0.9.4/css/bulma.min.css">
+    <style>
+        .drop-zone {
+            border: 2px dashed #007bff;
+            border-radius: 5px;
+            padding: 20px;
+            text-align: center;
+            cursor: pointer;
+            width: 300px;
+            height: 200px;
+            margin: 0 auto;
+            background-color: #f5f5f5;
+            position: relative; /* Positioning context for the preview image */
+            overflow: hidden; /* Hide overflowed content */
+        }
+        .drop-zone.dragover {
+            border-color: #0056b3;
+        }
+        .drop-zone img {
+            max-width: 100%;
+            max-height: 100%;
+            width: auto; /* Maintain aspect ratio */
+            height: auto; /* Maintain aspect ratio */
+            border: 2px solid #007bff;
+            border-radius: 5px;
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%); /* Center image within the drop zone */
+        }
+        .notification {
+            margin-top: 20px;
+            text-align: center;
+        }
+        #result {
+            border: 1px solid #007bff;
+            border-radius: 5px;
+            padding: 15px;
+            background-color: #007bff;
+            color: white;
+            width: 300px;
+            margin: 20px auto;
+        }
+        .result-item {
+            margin-bottom: 10px;
+        }
+        .result-item strong {
+            color: #ffffff;
+        }
+    </style>
+</head>
+<body>
+    <section class="section">
+        <div class="container">
+            <h1 class="title">International Athlete Classifier</h1>
+            <div class="drop-zone" id="drop-zone">
+                Drag & Drop your image here!
+                <img id="preview" src="" alt="Preview">
+            </div>
+            <button class="button is-primary" id="upload-btn">Upload Image</button>
+            <div class="notification" id="result">
+                <div class="result-item"><strong>Class:</strong> <span id="class-name">-</span></div>
+                <div class="result-item"><strong>Probabilities:</strong> <span id="probabilities">-</span></div>
+            </div>
+        </div>
+    </section>
+
+    <script>
+        const dropZone = document.getElementById('drop-zone');
+        const preview = document.getElementById('preview');
+        const classNameSpan = document.getElementById('class-name');
+        const probabilitiesSpan = document.getElementById('probabilities');
+        const resultDiv = document.getElementById('result');
+        const uploadBtn = document.getElementById('upload-btn');
+        let fileData = null;
+
+        dropZone.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            dropZone.classList.add('dragover');
+        });
+
+        dropZone.addEventListener('dragleave', () => {
+            dropZone.classList.remove('dragover');
+        });
+
+        dropZone.addEventListener('drop', (e) => {
+            e.preventDefault();
+            dropZone.classList.remove('dragover');
+            const file = e.dataTransfer.files[0];
+            if (file) {
+                fileData = file;
+                const reader = new FileReader();
+                reader.onload = (event) => {
+                    preview.src = event.target.result;
+                };
+                reader.readAsDataURL(file);
+            }
+        });
+
+        uploadBtn.addEventListener('click', async () => {
+            if (!fileData) {
+                alert('Please drop an image file first.');
+                return;
+            }
+
+            const reader = new FileReader();
+            reader.onload = async (event) => {
+                const base64Image = event.target.result;
+
+                try {
+                    const response = await fetch('/classify_image', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/x-www-form-urlencoded'
+                        },
+                        body: new URLSearchParams({
+                            image_data: base64Image
+                        })
+                    });
+
+                    if (!response.ok) {
+                        throw new Error('Network response was not ok');
+                    }
+
+                    const result = await response.json();
+
+                    // Use class_number_to_name dictionary for player names
+                    const classNames = result[0].class_dictionary;
+                    classNameSpan.textContent = result[0].class;
+                    probabilitiesSpan.innerHTML = result[0].class_probability.map((prob, index) => `<br>${classNames[index]}: ${prob}%`).join('');
+
+                } catch (error) {
+                    console.error('Error:', error);
+                }
+            };
+            reader.readAsDataURL(fileData);
+        });
+    </script>
+</body>
+</html>
